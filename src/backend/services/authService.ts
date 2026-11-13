@@ -67,38 +67,52 @@ export class AuthService {
     };
   }
 
-  static async githubLoginOrRegister(profile: {
-    githubId: string;
+  static async socialLogin(p: {
+    provider: "github" | "google";
+    providerId: string;
     name: string;
     email: string;
-    username: string;
-    avatar: string;
+    username?: string;
+    avatar?: string;
   }): Promise<{ user: UserPayload; token: string }> {
     await connectToDatabase();
-    let user = await UserModel.findOne({
-      $or: [{ githubId: profile.githubId }, { email: profile.email.toLowerCase() }],
-    });
+    const isGh = p.provider === "github";
+    const query = isGh
+      ? { $or: [{ githubId: p.providerId }, { email: p.email.toLowerCase() }] }
+      : { $or: [{ googleId: p.providerId }, { email: p.email.toLowerCase() }] };
 
+    let user = await UserModel.findOne(query);
     if (!user) {
       user = await UserModel.create({
-        name: profile.name || profile.username,
-        email: profile.email.toLowerCase(),
-        githubId: profile.githubId,
-        githubUsername: profile.username,
-        avatar: profile.avatar,
+        name: p.name || p.username || "User",
+        email: p.email.toLowerCase(),
+        [isGh ? "githubId" : "googleId"]: p.providerId,
+        githubUsername: p.username,
+        avatar: p.avatar,
       });
     } else {
-      user.githubId = profile.githubId;
-      user.githubUsername = profile.username;
-      if (!user.avatar) user.avatar = profile.avatar;
+      if (isGh) {
+        user.githubId = p.providerId;
+        user.githubUsername = p.username;
+      } else {
+        user.googleId = p.providerId;
+      }
+      if (!user.avatar && p.avatar) user.avatar = p.avatar;
       await user.save();
     }
 
-    const token = this.signToken(user);
     return {
       user: { id: user._id.toString(), name: user.name, email: user.email, avatar: user.avatar, githubUsername: user.githubUsername },
-      token,
+      token: this.signToken(user),
     };
+  }
+
+  static githubLoginOrRegister(p: { githubId: string; name: string; email: string; username: string; avatar: string }) {
+    return this.socialLogin({ provider: "github", providerId: p.githubId, ...p });
+  }
+
+  static googleLoginOrRegister(p: { googleId: string; name: string; email: string; avatar: string }) {
+    return this.socialLogin({ provider: "google", providerId: p.googleId, ...p });
   }
 }
 

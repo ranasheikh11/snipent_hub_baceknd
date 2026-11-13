@@ -2,9 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { AuthService } from "@/backend/services/authService";
 
 export async function GET(req: NextRequest) {
+  let frontendBase = process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_FRONTEND_URL || "http://localhost:3000";
+  const stateParam = req.nextUrl.searchParams.get("state");
+  if (stateParam) {
+    try {
+      const decoded = JSON.parse(Buffer.from(stateParam, "base64").toString("utf-8"));
+      if (decoded.returnTo) frontendBase = decoded.returnTo;
+    } catch (_) {}
+  }
+
   const code = req.nextUrl.searchParams.get("code");
-  if (!code) {
-    return NextResponse.redirect(new URL("/?error=missing_code", req.url));
+  const errorParam = req.nextUrl.searchParams.get("error");
+
+  if (!code || errorParam) {
+    const redirectUrl = new URL(frontendBase);
+    if (errorParam && errorParam !== "access_denied") {
+      redirectUrl.searchParams.set("error", errorParam);
+    }
+    return NextResponse.redirect(redirectUrl);
   }
 
   try {
@@ -42,7 +57,7 @@ export async function GET(req: NextRequest) {
     });
 
     const frontendBase = process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_FRONTEND_URL || "http://localhost:3000";
-    const redirectUrl = new URL("/", frontendBase);
+    const redirectUrl = new URL(frontendBase);
     redirectUrl.searchParams.set("auth", "success");
     redirectUrl.searchParams.set("token", token);
 
@@ -57,7 +72,9 @@ export async function GET(req: NextRequest) {
     return res;
   } catch (err: any) {
     const frontendBase = process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_FRONTEND_URL || "http://localhost:3000";
-    return NextResponse.redirect(new URL(`/?error=${encodeURIComponent(err.message)}`, frontendBase));
+    const redirectUrl = new URL(frontendBase);
+    redirectUrl.searchParams.set("error", err.message);
+    return NextResponse.redirect(redirectUrl);
   }
 }
 
