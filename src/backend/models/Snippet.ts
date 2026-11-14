@@ -37,6 +37,7 @@ export interface ISnippet extends Document {
   isPublic: boolean;
   copyCount: number;
   starsCount: number;
+  starredBy: string[];
   questions: ISnippetQuestion[];
   createdAt: Date;
   updatedAt: Date;
@@ -79,6 +80,7 @@ const SnippetSchema = new Schema<ISnippet>(
     isPublic: { type: Boolean, default: true },
     copyCount: { type: Number, default: 0 },
     starsCount: { type: Number, default: 0 },
+    starredBy: [{ type: String }],
     questions: [QuestionSchema],
   },
   { timestamps: true }

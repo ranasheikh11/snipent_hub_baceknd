@@ -44,12 +44,17 @@ export class SnippetService {
       const matchLevel = !level || (s.level || "BEGINNER").toUpperCase() === level.toUpperCase();
 
       const q = search?.toLowerCase().trim();
+      const qClean = q ? q.replace(/^#/, "") : "";
       const matchSearch =
         !q ||
         s.title.toLowerCase().includes(q) ||
         s.description.toLowerCase().includes(q) ||
         s.category.toLowerCase().includes(q) ||
         s.technology.toLowerCase().includes(q) ||
+        s.tags.some((t: string) => {
+          const tLower = t.toLowerCase();
+          return tLower.includes(q) || tLower.replace(/^#/, "") === qClean;
+        }) ||
         s.files.some((f: any) => f.filename.toLowerCase().includes(q) || f.code.toLowerCase().includes(q));
 
       return matchTopic && matchLevel && matchSearch;
@@ -96,11 +101,11 @@ export class SnippetService {
     await SnippetRepository.incrementCopy(id);
   }
 
-  static async starSnippet(id: string): Promise<number> {
-    return SnippetRepository.incrementStar(id);
+  static async starSnippet(id: string, userKey: string = "anonymous"): Promise<{ starsCount: number; starred: boolean }> {
+    return SnippetRepository.toggleStar(id, userKey);
   }
 
-  static async forkSnippet(id: string, authorName: string): Promise<SnippetItem | null> {
-    return SnippetRepository.fork(id, authorName);
+  static async forkSnippet(id: string, authorName: string, authorId?: string): Promise<SnippetItem | null> {
+    return SnippetRepository.fork(id, authorName, authorId);
   }
 }

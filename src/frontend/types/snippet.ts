@@ -19,6 +19,8 @@ export interface SnippetItem {
   isPublic: boolean;
   copyCount: number;
   starsCount: number;
+  starredBy?: string[];
+  questions?: any[];
   createdAt: string;
 }
 

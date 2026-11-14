@@ -26,6 +26,7 @@ export class SnippetRepository {
         isPublic: doc.isPublic ?? true,
         copyCount: doc.copyCount || 0,
         starsCount: doc.starsCount || 0,
+        starredBy: doc.starredBy || [],
         createdAt: doc.createdAt ? new Date(doc.createdAt).toISOString() : new Date().toISOString(),
       }));
     } catch {
@@ -58,18 +59,34 @@ export class SnippetRepository {
     if (conn) await SnippetModel.findByIdAndUpdate(id, { $inc: { copyCount: 1 } }).catch(() => null);
   }
 
-  static async incrementStar(id: string): Promise<number> {
-    const mem = this.inMemorySnippets.find((s) => s.id === id);
-    if (mem) mem.starsCount = (mem.starsCount || 0) + 1;
+  static async toggleStar(id: string, userKey: string): Promise<{ starsCount: number; starred: boolean }> {
     const conn = await connectToDatabase().catch(() => null);
-    if (conn) {
-      const res = await SnippetModel.findByIdAndUpdate(id, { $inc: { starsCount: 1 } }, { new: true }).catch(() => null);
-      if (res) return res.starsCount;
+    if (!conn) {
+      const mem = this.inMemorySnippets.find((s) => s.id === id);
+      if (!mem) return { starsCount: 0, starred: false };
+      mem.starredBy = mem.starredBy || [];
+      const has = mem.starredBy.includes(userKey);
+      if (has) {
+        mem.starredBy = mem.starredBy.filter((k) => k !== userKey);
+        mem.starsCount = Math.max(0, (mem.starsCount || 0) - 1);
+        return { starsCount: mem.starsCount, starred: false };
+      }
+      mem.starredBy.push(userKey);
+      mem.starsCount = (mem.starsCount || 0) + 1;
+      return { starsCount: mem.starsCount, starred: true };
     }
-    return mem?.starsCount || 1;
+    const doc = await SnippetModel.findById(id);
+    if (!doc) return { starsCount: 0, starred: false };
+    const isAlreadyStarred = (doc.starredBy || []).includes(userKey);
+    const update = isAlreadyStarred
+      ? { $pull: { starredBy: userKey }, $inc: { starsCount: -1 } }
+      : { $addToSet: { starredBy: userKey }, $inc: { starsCount: 1 } };
+    const res = await SnippetModel.findByIdAndUpdate(id, update, { new: true });
+    const count = Math.max(0, res?.starsCount || 0);
+    return { starsCount: count, starred: !isAlreadyStarred };
   }
 
-  static async fork(id: string, authorName: string): Promise<SnippetItem | null> {
+  static async fork(id: string, authorName: string, authorId?: string): Promise<SnippetItem | null> {
     const all = await this.getAll();
     const source = all.find((s) => s.id === id);
     if (!source) return null;
@@ -82,6 +99,7 @@ export class SnippetRepository {
       tags: [...source.tags, "forked"],
       files: source.files.map((f: any) => ({ ...f })),
       author: authorName,
+      authorId: authorId,
       isPublic: true,
     });
   }

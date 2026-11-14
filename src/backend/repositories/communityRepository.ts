@@ -1,5 +1,6 @@
 import { connectToDatabase } from "@/backend/config/db";
 import { CommunityModel } from "@/backend/models/Community";
+import { SnippetModel } from "@/backend/models/Snippet";
 import { initialCommunities, CommunityItem } from "@/backend/data/initialCommunities";
 
 export class CommunityRepository {
@@ -11,18 +12,31 @@ export class CommunityRepository {
     try {
       const docs = await CommunityModel.find().sort({ createdAt: -1 }).lean();
       if (!docs?.length) return this.inMemory;
-      return docs.map((d: any) => ({
-        id: d._id.toString(),
-        name: d.name,
-        slug: d.slug,
-        hashtag: d.hashtag || `#${d.slug}`,
-        description: d.description || "",
-        icon: d.icon || "🚀",
-        creatorName: d.creatorName || "Rana Sheikh",
-        membersCount: d.membersCount || 1,
-        members: d.members || [],
-        snippetsCount: d.snippetsCount || 0,
-      }));
+      const allSnippets = await SnippetModel.find({}, { tags: 1 }).lean().catch(() => []);
+
+      return docs.map((d: any) => {
+        const tag = d.hashtag || `#${d.slug}`;
+        const tagClean = tag.replace(/^#/, "").toLowerCase();
+        const realCount = allSnippets.filter((s: any) =>
+          (s.tags || []).some((t: string) => {
+            const tLower = t.toLowerCase();
+            return tLower === tag.toLowerCase() || tLower.replace(/^#/, "") === tagClean;
+          })
+        ).length;
+
+        return {
+          id: d._id.toString(),
+          name: d.name,
+          slug: d.slug,
+          hashtag: tag,
+          description: d.description || "",
+          icon: d.icon || "🚀",
+          creatorName: d.creatorName || "Rana Sheikh",
+          membersCount: d.membersCount || 1,
+          members: d.members || [],
+          snippetsCount: realCount,
+        };
+      });
     } catch {
       return this.inMemory;
     }

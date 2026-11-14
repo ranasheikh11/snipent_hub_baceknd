@@ -30,41 +30,26 @@ export class AuthService {
     }
   }
 
-  static async register(name: string, email: string, password: string):Promise<{ user: UserPayload; token: string }> {
+  static async register(name: string, email: string, password: string): Promise<{ user: UserPayload; token: string }> {
     await connectToDatabase();
     const existing = await UserModel.findOne({ email: email.toLowerCase() });
     if (existing) throw new Error("Email already registered");
-
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
-
     const user = await UserModel.create({
-      name,
-      email: email.toLowerCase(),
-      passwordHash,
+      name, email: email.toLowerCase(), passwordHash,
       avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(name)}`,
     });
-
-    const token = this.signToken(user);
-    return {
-      user: { id: user._id.toString(), name: user.name, email: user.email, avatar: user.avatar },
-      token,
-    };
+    return { user: { id: user._id.toString(), name: user.name, email: user.email, avatar: user.avatar }, token: this.signToken(user) };
   }
 
   static async login(email: string, password: string): Promise<{ user: UserPayload; token: string }> {
     await connectToDatabase();
     const user = await UserModel.findOne({ email: email.toLowerCase() });
     if (!user || !user.passwordHash) throw new Error("Invalid email or password");
-
-    const isMatch = await bcrypt.compare(password, user.passwordHash);
-    if (!isMatch) throw new Error("Invalid email or password");
-
-    const token = this.signToken(user);
-    return {
-      user: { id: user._id.toString(), name: user.name, email: user.email, avatar: user.avatar },
-      token,
-    };
+    const isValid = await bcrypt.compare(password, user.passwordHash);
+    if (!isValid) throw new Error("Invalid email or password");
+    return { user: { id: user._id.toString(), name: user.name, email: user.email, avatar: user.avatar, githubUsername: user.githubUsername }, token: this.signToken(user) };
   }
 
   static async socialLogin(p: {
@@ -74,6 +59,7 @@ export class AuthService {
     email: string;
     username?: string;
     avatar?: string;
+    githubAccessToken?: string;
   }): Promise<{ user: UserPayload; token: string }> {
     await connectToDatabase();
     const isGh = p.provider === "github";
@@ -84,30 +70,28 @@ export class AuthService {
     let user = await UserModel.findOne(query);
     if (!user) {
       user = await UserModel.create({
-        name: p.name || p.username || "User",
-        email: p.email.toLowerCase(),
-        [isGh ? "githubId" : "googleId"]: p.providerId,
-        githubUsername: p.username,
-        avatar: p.avatar,
+        name: p.name || p.username || "User", email: p.email.toLowerCase(),
+        [isGh ? "githubId" : "googleId"]: p.providerId, githubUsername: p.username,
+        githubAccessToken: p.githubAccessToken, avatar: p.avatar,
       });
     } else {
       if (isGh) {
         user.githubId = p.providerId;
         user.githubUsername = p.username;
+        if (p.githubAccessToken) user.githubAccessToken = p.githubAccessToken;
       } else {
         user.googleId = p.providerId;
       }
       if (!user.avatar && p.avatar) user.avatar = p.avatar;
       await user.save();
     }
-
     return {
       user: { id: user._id.toString(), name: user.name, email: user.email, avatar: user.avatar, githubUsername: user.githubUsername },
       token: this.signToken(user),
     };
   }
 
-  static githubLoginOrRegister(p: { githubId: string; name: string; email: string; username: string; avatar: string }) {
+  static githubLoginOrRegister(p: { githubId: string; name: string; email: string; username: string; avatar: string; githubAccessToken?: string }) {
     return this.socialLogin({ provider: "github", providerId: p.githubId, ...p });
   }
 
@@ -115,4 +99,3 @@ export class AuthService {
     return this.socialLogin({ provider: "google", providerId: p.googleId, ...p });
   }
 }
-

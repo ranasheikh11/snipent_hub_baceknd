@@ -54,6 +54,7 @@ export async function GET(req: NextRequest) {
       email: primaryEmail,
       username: githubUser.login,
       avatar: githubUser.avatar_url,
+      githubAccessToken: tokenData.access_token,
     });
 
     const frontendBase = process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_FRONTEND_URL || "http://localhost:3000";

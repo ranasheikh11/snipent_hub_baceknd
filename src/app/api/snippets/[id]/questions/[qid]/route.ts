@@ -8,7 +8,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string; qid: string }> }
 ) {
   const { id, qid } = await params;
-  const token = req.cookies.get("token")?.value;
+  const token =
+    req.cookies.get("token")?.value ||
+    req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
   const user = token ? AuthService.verifyToken(token) : null;
   if (!user) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
 

@@ -30,6 +30,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     description: body.description,
     technology: body.technology,
     category: body.category,
+    level: body.level || snippet.level,
     files: body.files,
     tags: body.tags || snippet.tags,
     isPublic: body.isPublic !== undefined ? body.isPublic : snippet.isPublic,

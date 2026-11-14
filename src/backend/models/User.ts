@@ -6,7 +6,12 @@ export interface IUser extends Document {
   passwordHash?: string;
   githubId?: string;
   githubUsername?: string;
+  githubAccessToken?: string;
   googleId?: string;
+  googleAccessToken?: string;
+  googleRefreshToken?: string;
+  youtubeConnected?: boolean;
+  youtubeChannelTitle?: string;
   avatar?: string;
   bio?: string;
   role: "user" | "admin";
@@ -22,6 +27,11 @@ const UserSchema = new Schema<IUser>(
     githubId: { type: String, sparse: true },
     googleId: { type: String, sparse: true },
     githubUsername: { type: String },
+    githubAccessToken: { type: String },
+    googleAccessToken: { type: String },
+    googleRefreshToken: { type: String },
+    youtubeConnected: { type: Boolean, default: false },
+    youtubeChannelTitle: { type: String },
     avatar: { type: String, default: "" },
     bio: { type: String, default: "" },
     role: { type: String, enum: ["user", "admin"], default: "user" },
@@ -31,4 +41,3 @@ const UserSchema = new Schema<IUser>(
 
 export const UserModel: Model<IUser> =
   mongoose.models.User || mongoose.model<IUser>("User", UserSchema);
-
