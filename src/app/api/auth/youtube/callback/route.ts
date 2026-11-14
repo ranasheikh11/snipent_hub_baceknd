@@ -6,7 +6,7 @@ export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
   const stateParam = req.nextUrl.searchParams.get("state");
   let userId = "";
-  let returnTo = "http://localhost:3000/courses/create";
+  let returnTo = "https://snipent-hub.vercel.app/courses/create";
 
   if (stateParam) {
     try {
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const backendBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+    const backendBase = (process.env.NEXT_PUBLIC_API_URL || req.nextUrl.origin).replace(/\/+$/, "");
     const redirectUri = `${backendBase}/api/auth/youtube/callback`;
 
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {

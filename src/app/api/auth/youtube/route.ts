@@ -13,9 +13,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, message: "Please login first to connect YouTube" }, { status: 401 });
   }
 
-  const backendBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  const backendBase = (process.env.NEXT_PUBLIC_API_URL || req.nextUrl.origin).replace(/\/+$/, "");
   const redirectUri = `${backendBase}/api/auth/youtube/callback`;
-  const returnTo = req.nextUrl.searchParams.get("returnTo") || "http://localhost:3000/courses/create";
+  const returnTo = req.nextUrl.searchParams.get("returnTo") || "https://snipent-hub.vercel.app/courses/create";
 
   const state = Buffer.from(JSON.stringify({ userId: user.id, returnTo })).toString("base64");
   const scope = encodeURIComponent("openid email profile https://www.googleapis.com/auth/youtube.readonly");
