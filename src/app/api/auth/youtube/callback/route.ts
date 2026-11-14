@@ -2,6 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { UserModel } from "@/backend/models/User";
 import connectDB from "@/backend/config/db";
 
+function getBaseUrl(req: NextRequest): string {
+  const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
+  const proto = req.headers.get("x-forwarded-proto") || (host?.includes("localhost") ? "http" : "https");
+  if (host && !host.includes("localhost")) {
+    return `${proto}://${host}`.replace(/\/+$/, "");
+  }
+  if (process.env.NEXT_PUBLIC_API_URL && !process.env.NEXT_PUBLIC_API_URL.includes("localhost")) {
+    return process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, "");
+  }
+  return (host ? `${proto}://${host}` : req.nextUrl.origin).replace(/\/+$/, "");
+}
+
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
   const stateParam = req.nextUrl.searchParams.get("state");
@@ -23,8 +35,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const backendBase = (process.env.NEXT_PUBLIC_API_URL || req.nextUrl.origin).replace(/\/+$/, "");
-    const redirectUri = `${backendBase}/api/auth/youtube/callback`;
+    const redirectUri = `${getBaseUrl(req)}/api/auth/youtube/callback`;
 
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
@@ -65,4 +76,3 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 }
-
