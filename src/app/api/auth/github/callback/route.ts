@@ -1,21 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AuthService } from "@/backend/services/authService";
 
-export async function GET(req: NextRequest) {
-  let frontendBase = process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_FRONTEND_URL || "http://localhost:3000";
-  const stateParam = req.nextUrl.searchParams.get("state");
+function getFrontendBase(stateParam: string | null): string {
   if (stateParam) {
     try {
       const decoded = JSON.parse(Buffer.from(stateParam, "base64").toString("utf-8"));
-      if (decoded.returnTo) frontendBase = decoded.returnTo;
-    } catch (_) {}
+      if (decoded.returnTo && !decoded.returnTo.includes("localhost")) {
+        return decoded.returnTo;
+      }
+    } catch {}
   }
+  if (process.env.FRONTEND_URL && !process.env.FRONTEND_URL.includes("localhost")) {
+    return process.env.FRONTEND_URL;
+  }
+  return "https://snipent-hub.vercel.app";
+}
 
+export async function GET(req: NextRequest) {
+  const stateParam = req.nextUrl.searchParams.get("state");
+  const targetBase = getFrontendBase(stateParam);
   const code = req.nextUrl.searchParams.get("code");
   const errorParam = req.nextUrl.searchParams.get("error");
 
   if (!code || errorParam) {
-    const redirectUrl = new URL(frontendBase);
+    const redirectUrl = new URL(targetBase);
     if (errorParam && errorParam !== "access_denied") {
       redirectUrl.searchParams.set("error", errorParam);
     }
@@ -57,8 +65,7 @@ export async function GET(req: NextRequest) {
       githubAccessToken: tokenData.access_token,
     });
 
-    const frontendBase = process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_FRONTEND_URL || "http://localhost:3000";
-    const redirectUrl = new URL(frontendBase);
+    const redirectUrl = new URL(targetBase);
     redirectUrl.searchParams.set("auth", "success");
     redirectUrl.searchParams.set("token", token);
 
@@ -72,10 +79,8 @@ export async function GET(req: NextRequest) {
     });
     return res;
   } catch (err: any) {
-    const frontendBase = process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_FRONTEND_URL || "http://localhost:3000";
-    const redirectUrl = new URL(frontendBase);
-    redirectUrl.searchParams.set("error", err.message);
+    const redirectUrl = new URL(targetBase);
+    redirectUrl.searchParams.set("error", err.message || "github_auth_error");
     return NextResponse.redirect(redirectUrl);
   }
 }
-
